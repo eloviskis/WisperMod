@@ -156,13 +156,18 @@ def processar_audio(
     temp_dir.mkdir(exist_ok=True)
 
     # ── ETAPA 1: segmentar o áudio ────────────────────────────────────────────
+    # Re-encode para MP3 16 kHz mono — compatível com qualquer codec de entrada
+    # (OGG/Opus, AAC, WAV, etc.) e otimizado para o Whisper.
     _cb(5, "Segmentando áudio em partes de 30 minutos...")
     subprocess.run(
         [
             ffmpeg, "-i", str(arquivo_path),
             "-f", "segment",
             "-segment_time", "1800",
-            "-c", "copy",
+            "-acodec", "libmp3lame",
+            "-ar", "16000",
+            "-ac", "1",
+            "-q:a", "4",
             "-y",
             str(temp_dir / "seg_%03d.mp3"),
         ],
