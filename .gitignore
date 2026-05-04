@@ -1,0 +1,13 @@
+# binários gerados pelo build
+bin/ffmpeg.exe
+models/*.pt
+dist/
+build/
+__pycache__/
+*.pyc
+*.pyo
+.env
+
+# uploads/resultados gerados pelo app web (se rodar backend.py)
+uploads/
+results/

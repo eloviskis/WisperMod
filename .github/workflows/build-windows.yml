@@ -1,0 +1,75 @@
+name: Build WisperMod — Windows Desktop
+
+on:
+  workflow_dispatch:           # disparo manual pelo GitHub UI
+  push:
+    branches: [main]
+    paths:
+      - "desktop_app.py"
+      - "core/**"
+      - "wispermod.spec"
+      - "requirements_desktop.txt"
+      - ".github/workflows/build-windows.yml"
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 120
+
+    steps:
+      # ── 1. código ────────────────────────────────────────────────────────────
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # ── 2. Python 3.11 ───────────────────────────────────────────────────────
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      # ── 3. PyTorch CPU-only (evita +1 GB da versão CUDA) ────────────────────
+      - name: Install PyTorch (CPU only)
+        run: |
+          pip install torch torchaudio --index-url https://download.pytorch.org/whl/cpu
+
+      # ── 4. demais dependências ────────────────────────────────────────────────
+      - name: Install dependencies
+        run: pip install -r requirements_desktop.txt
+
+      # ── 5. FFmpeg — baixar, extrair e copiar para bin/ ───────────────────────
+      - name: Setup FFmpeg
+        uses: FedericoCarboni/setup-ffmpeg@v3
+        id: setup_ffmpeg
+
+      - name: Bundle FFmpeg into bin/
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path bin | Out-Null
+          $src = (Get-Command ffmpeg).Source
+          Copy-Item $src -Destination bin\ffmpeg.exe -Force
+          Write-Host "FFmpeg bundled from: $src"
+
+      # ── 6. pré-download do modelo Whisper small (~465 MB) ────────────────────
+      - name: Pre-download Whisper model
+        run: |
+          python -c "import whisper; whisper.load_model('small', download_root='models')"
+
+      # ── 7. build com PyInstaller ──────────────────────────────────────────────
+      - name: Build with PyInstaller
+        run: pyinstaller wispermod.spec --noconfirm
+
+      # ── 8. empacotar resultado em ZIP ─────────────────────────────────────────
+      - name: Zip dist folder
+        shell: pwsh
+        run: |
+          Compress-Archive -Path dist\WisperMod -DestinationPath WisperMod-Windows.zip
+          $size = (Get-Item WisperMod-Windows.zip).Length / 1MB
+          Write-Host "Tamanho do ZIP: $([math]::Round($size, 1)) MB"
+
+      # ── 9. publicar artefato (disponível por 30 dias) ─────────────────────────
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: WisperMod-Windows
+          path: WisperMod-Windows.zip
+          retention-days: 30

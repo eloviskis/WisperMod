@@ -1,0 +1,2 @@
+# Este diretório recebe o ffmpeg.exe durante o build (GitHub Actions ou local).
+# Não commitar o binário — ele é copiado automaticamente pelo workflow.

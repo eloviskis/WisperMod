@@ -1,0 +1,40 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    container_name: audio-intelligence-backend
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./uploads:/app/uploads
+      - ./results:/app/results
+    environment:
+      - PYTHONUNBUFFERED=1
+    command: python backend.py
+    networks:
+      - audio-network
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.frontend
+    container_name: audio-intelligence-frontend
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+    networks:
+      - audio-network
+    environment:
+      - REACT_APP_API_URL=http://localhost:8000
+
+networks:
+  audio-network:
+    driver: bridge
+
+volumes:
+  uploads:
+  results:

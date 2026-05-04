@@ -1,0 +1,2 @@
+# Este diretório recebe o modelo Whisper (small.pt ~465 MB) durante o build.
+# Não commitar o modelo — ele é baixado automaticamente pelo workflow.
