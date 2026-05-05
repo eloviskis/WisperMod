@@ -207,7 +207,7 @@ def processar_audio(
         )
 
         _cb(pct_base + int(35 / n), f"Segmento {i + 1}/{n}: transcrevendo...")
-        result = model.transcribe(str(seg_clean), language="pt", verbose=False)
+        result = model.transcribe(str(seg_clean), language="pt", verbose=None)
 
         eventos = extrair_timeline(result["segments"], offset_s)
         todos_eventos.extend(eventos)
