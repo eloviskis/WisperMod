@@ -155,125 +155,35 @@ def extrair_destaques(eventos: List[Event]) -> List[Event]:
 
 
 def processar_audio_sync(arquivo: str, job_id: str) -> Dict:
-    """Processa áudio sincronamente"""
-    
+    """Processa áudio delegando ao core/processador.py"""
+    from core.processador import processar_audio
+
+    def _cb(progresso: int, mensagem: str):
+        atualizar_job(job_id, "processando", {"progresso": progresso, "mensagem": mensagem})
+
     try:
-        atualizar_job(job_id, "processando", {"progresso": 10, "mensagem": "Fracionando áudio..."})
-        
-        base_nome = Path(arquivo).stem
-        pasta_saida = RESULTS_DIR / f"{base_nome}_{job_id[:8]}"
-        pasta_saida.mkdir(exist_ok=True)
-        
-        temp_dir = pasta_saida / "temp"
-        temp_dir.mkdir(exist_ok=True)
-
-        # FRACIONAMENTO
-        subprocess.run([
-            "ffmpeg", "-i", arquivo,
-            "-f", "segment",
-            "-segment_time", "1800",
-            "-c", "copy",
-            "-y",
-            str(temp_dir / "seg_%03d.mp3")
-        ], capture_output=True, check=True)
-
-        arquivos = sorted([f for f in os.listdir(temp_dir) if f.startswith("seg_")])
-        
-        atualizar_job(job_id, "processando", {
-            "progresso": 20,
-            "mensagem": f"Processando {len(arquivos)} segmento(s)..."
-        })
-
-        resultados_segmentos = []
-        
-        for i, arq in enumerate(arquivos):
-            caminho = temp_dir / arq
-            nome_base_seg = f"DIA01-{i*30:02d}a{i*30+30:02d}"
-            
-            progresso = 20 + int(60 * (i / len(arquivos)))
-            atualizar_job(job_id, "processando", {
-                "progresso": progresso,
-                "mensagem": f"Segmento {i+1}/{len(arquivos)}: Limpeza e transcrição..."
-            })
-
-            # LIMPEZA
-            limpo = str(caminho).replace(".mp3", "_clean.mp3")
-            subprocess.run([
-                "ffmpeg", "-i", str(caminho),
-                "-af", "afftdn=nf=-25",
-                "-y",
-                limpo
-            ], capture_output=True, check=True)
-
-            # TRANSCRIÇÃO
-            try:
-                subprocess.run([
-                    "whisperx", limpo,
-                    "--language", "pt",
-                    "--output_format", "txt"
-                ], capture_output=True, check=True)
-            except:
-                subprocess.run([
-                    "whisper", limpo,
-                    "--language", "pt",
-                    "--output_format", "txt"
-                ], capture_output=True, check=True)
-
-            # ANÁLISE
-            txt_file = limpo.replace(".mp3", ".txt")
-            if os.path.exists(txt_file):
-                with open(txt_file, encoding="utf-8") as f:
-                    texto = f.read()
-
-                eventos = extrair_timeline(texto)
-                sintese = gerar_sintese(eventos)
-                destaques = extrair_destaques(eventos)
-
-                # SALVAR RELATÓRIO
-                rel_file = pasta_saida / f"{nome_base_seg}_RELATORIO.txt"
-                with open(rel_file, "w", encoding="utf-8") as r:
-                    r.write("=" * 70 + "\n")
-                    r.write(f"RELATÓRIO - {nome_base_seg}\n")
-                    r.write("=" * 70 + "\n\n")
-                    r.write("📋 TRANSCRIÇÃO\n")
-                    r.write("-" * 70 + "\n")
-                    r.write(texto)
-                    r.write("\n\n" + "=" * 70 + "\n")
-                    r.write("🎯 SÍNTESE\n")
-                    r.write("-" * 70 + "\n")
-                    r.write(sintese)
-                    r.write("\n\n" + "=" * 70 + "\n")
-                    r.write("🔴 DESTAQUES\n")
-                    r.write("-" * 70 + "\n")
-                    for d in destaques:
-                        r.write(f"{d.tempo} [{','.join(d.categorias)}]\n")
-                        r.write(f"   {d.texto}\n\n")
-
-                resultados_segmentos.append({
-                    "segmento": nome_base_seg,
-                    "eventos": len(eventos),
-                    "destaques": len(destaques)
-                })
+        resultado = processar_audio(arquivo, progress_callback=_cb)
 
         atualizar_job(job_id, "concluido", {
             "progresso": 100,
             "mensagem": "Processamento concluído!",
             "resultados": {
-                "pasta": str(pasta_saida),
-                "segmentos": resultados_segmentos,
-                "total_eventos": sum(r["eventos"] for r in resultados_segmentos),
-                "total_destaques": sum(r["destaques"] for r in resultados_segmentos)
+                "pasta": resultado["pasta_saida"],
+                "relatorio_final": resultado["relatorio_final"],
+                "contagem_por_cat": resultado["contagem_por_cat"],
+                "segmentos": resultado["segmentos"],
+                "total_eventos": resultado["total_eventos"],
+                "total_destaques": resultado["total_destaques"],
             }
         })
-
-        return JOBS[job_id]
 
     except Exception as e:
         atualizar_job(job_id, "erro", {
             "mensagem": f"Erro: {str(e)}",
             "progresso": 0
         })
-        return JOBS[job_id]
+
+    return JOBS[job_id]
 
 
 # =============================

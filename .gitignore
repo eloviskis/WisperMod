@@ -11,3 +11,10 @@ __pycache__/
 # uploads/resultados gerados pelo app web (se rodar backend.py)
 uploads/
 results/
+
+# ambiente local Python
+venv/
+
+# frontend (Node)
+node_modules/
+install_log.txt
