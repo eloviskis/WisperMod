@@ -36,6 +36,7 @@ npx vite build --base=/wispermod/ --outDir=dist
 echo "=== [5/7] Deployando frontend estático ==="
 mkdir -p "$WWW_DIR"
 cp -r "$APP_DIR"/dist/* "$WWW_DIR/"
+chmod -R 755 "$WWW_DIR"
 echo "   Frontend copiado para $WWW_DIR"
 
 echo "=== [6/7] Configurando nginx ==="
