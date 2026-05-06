@@ -1,0 +1,17 @@
+[Unit]
+Description=WisperMod – Transcrição de Áudio com Whisper
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/wispermod
+Environment="PATH=/opt/wispermod/venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin"
+ExecStart=/opt/wispermod/venv/bin/python backend.py --port 8001
+Restart=on-failure
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

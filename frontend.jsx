@@ -2,7 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Upload, AlertCircle, CheckCircle, Loader, Download, BarChart3, Zap } from 'lucide-react';
 
 const API_BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:8000';
-const WS_BASE  = API_BASE.replace(/^https/, 'wss').replace(/^http/, 'ws');
+const WS_BASE  = (import.meta.env.VITE_WS_URL ?? API_BASE)
+  .replace(/^https/, 'wss').replace(/^http/, 'ws');
 
 export default function AudioIntelligence() {
   const [file, setFile] = useState(null);
