@@ -18,3 +18,9 @@ venv/
 # frontend (Node)
 node_modules/
 install_log.txt
+dist/
+
+# variáveis de ambiente locais (nunca versionar segredos)
+.env
+.env.local
+.env.*.local

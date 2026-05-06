@@ -1,0 +1,143 @@
+╔══════════════════════════════════════════════════════════════════╗
+║          WISPERMOD — Como Rodar no Navegador (Windows)           ║
+╚══════════════════════════════════════════════════════════════════╝
+
+O WisperMod tem dois modos: Desktop (app .exe) e Web (navegador).
+Este pacote contém o modo WEB — backend FastAPI + frontend React.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ PRÉ-REQUISITOS (instalar uma vez)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. Python 3.11
+   winget install Python.Python.3.11
+   (ou baixe em https://www.python.org/downloads/)
+
+2. FFmpeg
+   winget install Gyan.FFmpeg
+   (ou baixe em https://ffmpeg.org/download.html)
+
+3. Node.js (versão 18 ou superior)
+   winget install OpenJS.NodeJS
+   (ou baixe em https://nodejs.org/)
+
+   Após instalar cada um, FECHE e REABRA o terminal para que
+   os comandos fiquem disponíveis no PATH.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ INICIANDO O APP (método automático — recomendado)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. Extraia este ZIP em qualquer pasta (ex: C:\WisperMod)
+
+2. Clique com botão direito em "start.ps1"
+   → "Executar com PowerShell"
+
+   Na primeira execução ele irá:
+   ✓ Criar um ambiente virtual Python (venv)
+   ✓ Instalar PyTorch CPU + dependências Python
+   ✓ Instalar dependências Node.js (React, Vite)
+   ✓ Iniciar o backend na porta 8000
+   ✓ Iniciar o frontend na porta 3000
+   ✓ Abrir automaticamente http://localhost:3000
+
+   ATENÇÃO: A instalação na 1ª execução pode levar 5-15 minutos
+   pois baixa PyTorch (~300 MB) e outras dependências.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ INICIANDO O APP (método manual — passo a passo)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Abra um terminal PowerShell na pasta do projeto:
+
+── CONFIGURAÇÃO INICIAL (somente na 1ª vez) ──────────────────────
+
+  # Criar ambiente virtual
+  python -m venv venv
+
+  # Ativar o ambiente
+  .\venv\Scripts\Activate.ps1
+
+  # Instalar PyTorch (CPU, ~300 MB)
+  pip install torch --index-url https://download.pytorch.org/whl/cpu
+
+  # Instalar demais dependências Python
+  pip install -r requirements_web.txt
+
+  # Instalar dependências do frontend
+  npm install
+
+── INICIAR (toda vez que quiser usar) ───────────────────────────
+
+  Terminal 1 — Backend:
+    .\venv\Scripts\Activate.ps1
+    python backend.py
+
+  Terminal 2 — Frontend:
+    npm run dev
+
+  Acesse: http://localhost:3000
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ USANDO O APP
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. Abra http://localhost:3000 no navegador
+2. Arraste um arquivo de áudio ou clique para selecionar
+   Formatos suportados: MP3, WAV, OGG, M4A, AAC, FLAC, OPUS, WMA
+3. Clique em "Processar Áudio"
+4. Aguarde o processamento (barra de progresso)
+   - Na 1ª execução: o modelo Whisper (~461 MB) é baixado automaticamente
+   - Arquivos longos (>30 min) levam mais tempo no CPU
+5. Ao concluir, clique em "Download ZIP" para baixar os relatórios
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ ESTRUTURA DOS ARQUIVOS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  backend.py          — Servidor FastAPI (API + WebSocket)
+  frontend.jsx        — Interface React
+  main.jsx            — Entry point do React
+  index.html          — HTML base
+  vite.config.js      — Configuração do Vite (proxy para o backend)
+  package.json        — Dependências Node.js
+  requirements_web.txt— Dependências Python
+  core/
+    processador.py    — Pipeline de transcrição e análise
+  start.ps1           — Script de inicialização automática
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ PROBLEMAS COMUNS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  "ffmpeg não encontrado"
+  → Instale FFmpeg com: winget install Gyan.FFmpeg
+    Feche e reabra o terminal após instalar.
+
+  "Erro ao executar start.ps1"
+  → Abra o PowerShell como Administrador e execute:
+    Set-ExecutionPolicy RemoteSigned -Scope CurrentUser
+
+  Progresso parado em ~10% por muito tempo
+  → O modelo Whisper está sendo baixado (~461 MB). Aguarde.
+
+  Porta 8000 ou 3000 já em uso
+  → Feche outros programas que possam estar usando essas portas
+    ou reinicie o computador.
+
+  "Module not found" ao iniciar o backend
+  → Certifique-se de ativar o venv antes de rodar:
+    .\venv\Scripts\Activate.ps1
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ REPOSITÓRIO / ATUALIZAÇÕES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  https://github.com/eloviskis/WisperMod

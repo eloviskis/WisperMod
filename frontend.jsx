@@ -1,6 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Upload, AlertCircle, CheckCircle, Loader, Download, BarChart3, Zap } from 'lucide-react';
 
+const API_BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:8000';
+const WS_BASE  = API_BASE.replace(/^https/, 'wss').replace(/^http/, 'ws');
+
 export default function AudioIntelligence() {
   const [file, setFile] = useState(null);
   const [jobId, setJobId] = useState(null);
@@ -50,7 +53,7 @@ export default function AudioIntelligence() {
     try {
       setUploadProgress(50);
       
-      const response = await fetch('http://localhost:8000/upload', {
+      const response = await fetch(`${API_BASE}/upload`, {
         method: 'POST',
         body: formData,
       });
@@ -69,8 +72,7 @@ export default function AudioIntelligence() {
   };
 
   const connectWebSocket = (id) => {
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const ws = new WebSocket(`${protocol}//localhost:8000/ws/${id}`);
+    const ws = new WebSocket(`${WS_BASE}/ws/${id}`);
 
     ws.onmessage = (event) => {
       const data = JSON.parse(event.data);
@@ -88,7 +90,7 @@ export default function AudioIntelligence() {
     if (!jobId) return;
 
     try {
-      const response = await fetch(`http://localhost:8000/download/${jobId}`);
+      const response = await fetch(`${API_BASE}/download/${jobId}`);
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
