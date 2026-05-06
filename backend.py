@@ -3,7 +3,7 @@ Backend FastAPI para Pipeline de Processamento de Áudio
 Processamento assíncrono com WebSocket para atualizações em tempo real
 """
 
-from fastapi import FastAPI, UploadFile, File, BackgroundTasks, WebSocket
+from fastapi import FastAPI, UploadFile, File, BackgroundTasks, WebSocket, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
@@ -37,6 +37,10 @@ UPLOAD_DIR = Path("uploads")
 RESULTS_DIR = Path("results")
 UPLOAD_DIR.mkdir(exist_ok=True)
 RESULTS_DIR.mkdir(exist_ok=True)
+
+# Limites e validação
+MAX_FILE_SIZE = 500 * 1024 * 1024  # 500 MB
+ALLOWED_EXTENSIONS = {".mp3", ".wav", ".m4a", ".aac", ".flac", ".ogg", ".wma", ".opus"}
 
 # Store para status em tempo real
 JOBS = {}
@@ -198,20 +202,40 @@ async def root():
 @app.post("/upload")
 async def upload_audio(file: UploadFile = File(...), background_tasks: BackgroundTasks = BackgroundTasks()):
     """Upload e processamento de áudio"""
-    
+
+    # Validação de extensão
+    ext = Path(file.filename).suffix.lower()
+    if ext not in ALLOWED_EXTENSIONS:
+        raise HTTPException(
+            status_code=415,
+            detail=f"Formato não suportado: '{ext}'. Use: {', '.join(sorted(ALLOWED_EXTENSIONS))}"
+        )
+
     job_id = str(uuid.uuid4())
     
-    # Salvar arquivo
+    # Salvar arquivo com leitura em chunks para não estourar memória
     arquivo_path = UPLOAD_DIR / file.filename
+    tamanho = 0
     with open(arquivo_path, "wb") as f:
-        content = await file.read()
-        f.write(content)
+        while True:
+            chunk = await file.read(1024 * 1024)  # 1 MB por vez
+            if not chunk:
+                break
+            tamanho += len(chunk)
+            if tamanho > MAX_FILE_SIZE:
+                f.close()
+                arquivo_path.unlink(missing_ok=True)
+                raise HTTPException(
+                    status_code=413,
+                    detail=f"Arquivo excede o limite de {MAX_FILE_SIZE // (1024*1024)} MB."
+                )
+            f.write(chunk)
     
     atualizar_job(job_id, "iniciado", {
         "progresso": 0,
         "mensagem": "Iniciando processamento...",
         "arquivo": file.filename,
-        "tamanho": len(content)
+        "tamanho": tamanho
     })
     
     # Processar em background
@@ -256,6 +280,7 @@ async def websocket_endpoint(websocket: WebSocket, job_id: str):
     """WebSocket para atualizações em tempo real"""
     await websocket.accept()
     
+    ping_counter = 0
     try:
         while True:
             if job_id in JOBS:
@@ -265,17 +290,21 @@ async def websocket_endpoint(websocket: WebSocket, job_id: str):
                 break
             
             await asyncio.sleep(1)
+
+            # Ping a cada 5s para manter conexão viva
+            ping_counter += 1
+            if ping_counter >= 5:
+                ping_counter = 0
+                await websocket.send_json({"_ping": True})
     except Exception as e:
         print(f"WebSocket error: {e}")
     finally:
-        await websocket.close()
+        try:
+            await websocket.close()
+        except Exception:
+            pass
 
 
 if __name__ == "__main__":
-    import argparse
     import uvicorn
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--port", type=int, default=8000)
-    parser.add_argument("--host", type=str, default="0.0.0.0")
-    args = parser.parse_args()
-    uvicorn.run(app, host=args.host, port=args.port)
+    uvicorn.run(app, host="0.0.0.0", port=8000)
