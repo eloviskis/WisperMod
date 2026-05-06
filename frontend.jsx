@@ -2,8 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Upload, AlertCircle, CheckCircle, Loader, Download, BarChart3, Zap } from 'lucide-react';
 
 const API_BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:8000';
-const WS_BASE  = (import.meta.env.VITE_WS_URL ?? API_BASE)
-  .replace(/^https/, 'wss').replace(/^http/, 'ws');
+const WS_BASE  = API_BASE.replace(/^https/, 'wss').replace(/^http/, 'ws');
 
 export default function AudioIntelligence() {
   const [file, setFile] = useState(null);
@@ -11,8 +10,21 @@ export default function AudioIntelligence() {
   const [status, setStatus] = useState(null);
   const [isDragging, setIsDragging] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadError, setUploadError] = useState(null);
   const fileInputRef = useRef(null);
   const wsRef = useRef(null);
+  const retryCountRef = useRef(0);
+  const activeJobIdRef = useRef(null);
+
+  // Cleanup WebSocket ao desmontar
+  useEffect(() => {
+    return () => {
+      if (wsRef.current) {
+        wsRef.current.close();
+        wsRef.current = null;
+      }
+    };
+  }, []);
 
   // Upload
   const handleDrop = (e) => {
@@ -53,14 +65,22 @@ export default function AudioIntelligence() {
 
     try {
       setUploadProgress(50);
+      setUploadError(null);
       
       const response = await fetch(`${API_BASE}/upload`, {
         method: 'POST',
         body: formData,
       });
 
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.detail || `Erro ${response.status} ao enviar arquivo`);
+      }
+
       const data = await response.json();
       setJobId(data.job_id);
+      activeJobIdRef.current = data.job_id;
+      retryCountRef.current = 0;
       setUploadProgress(100);
       setStatus(null);
       
@@ -68,20 +88,43 @@ export default function AudioIntelligence() {
       connectWebSocket(data.job_id);
     } catch (error) {
       console.error('Erro no upload:', error);
+      setUploadError(error.message || 'Falha ao enviar arquivo. Tente novamente.');
       setUploadProgress(0);
     }
   };
 
   const connectWebSocket = (id) => {
+    // Fecha conexão anterior se existir
+    if (wsRef.current) {
+      wsRef.current.onclose = null;
+      wsRef.current.close();
+    }
+
     const ws = new WebSocket(`${WS_BASE}/ws/${id}`);
 
     ws.onmessage = (event) => {
       const data = JSON.parse(event.data);
+      retryCountRef.current = 0; // reconectou com sucesso
       setStatus(data);
     };
 
-    ws.onerror = (error) => {
-      console.error('WebSocket error:', error);
+    ws.onclose = () => {
+      // Não reconectar se job já terminou ou ID mudou
+      if (activeJobIdRef.current !== id) return;
+      if (retryCountRef.current >= 5) {
+        setStatus(prev => ({
+          ...prev,
+          _connectionError: 'Conexão perdida. Atualize a página se o processamento travar.',
+        }));
+        return;
+      }
+      retryCountRef.current += 1;
+      setStatus(prev => ({ ...prev, _reconnecting: true }));
+      setTimeout(() => connectWebSocket(id), 2000);
+    };
+
+    ws.onerror = () => {
+      setStatus(prev => ({ ...prev, _reconnecting: true }));
     };
 
     wsRef.current = ws;
@@ -111,8 +154,13 @@ export default function AudioIntelligence() {
     setJobId(null);
     setStatus(null);
     setUploadProgress(0);
+    setUploadError(null);
+    activeJobIdRef.current = null;
+    retryCountRef.current = 0;
     if (wsRef.current) {
+      wsRef.current.onclose = null; // evita tentativa de reconexão após reset
       wsRef.current.close();
+      wsRef.current = null;
     }
   };
 
@@ -303,6 +351,13 @@ export default function AudioIntelligence() {
               Processar Áudio
             </button>
           </div>
+
+          {/* Erro de upload */}
+          {uploadError && (
+            <div style={{ marginTop: 12, padding: '12px 16px', borderLeft: '3px solid rgb(248,113,113)', background: 'rgba(248,113,113,0.08)', color: 'rgb(248,113,113)', fontSize: '0.85em' }}>
+              ⚠ {uploadError}
+            </div>
+          )}
 
           {/* Footer */}
           <div className="mt-8 pt-6 border-t border-slate-800 text-xs text-slate-600">
@@ -524,6 +579,18 @@ export default function AudioIntelligence() {
             )}
           </div>
         </div>
+
+        {/* Aviso de reconexão ou erro de conexão */}
+        {status?._connectionError && (
+          <div style={{ marginBottom: 12, padding: '12px 16px', borderLeft: '3px solid rgb(248,113,113)', background: 'rgba(248,113,113,0.08)', color: 'rgb(248,113,113)', fontSize: '0.85em' }}>
+            ⚠ {status._connectionError}
+          </div>
+        )}
+        {status?._reconnecting && !status?._connectionError && (
+          <div style={{ marginBottom: 12, padding: '10px 16px', borderLeft: '3px solid rgb(251,191,36)', background: 'rgba(251,191,36,0.08)', color: 'rgb(251,191,36)', fontSize: '0.85em' }}>
+            &#8635; Reconectando ao servidor...
+          </div>
+        )}
 
         {/* Actions */}
         <div className="flex gap-4">
